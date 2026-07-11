@@ -1,0 +1,30 @@
+blockExoticSubdeps: true
+
+catalog:
+  '@oxlint/plugins': 1.73.0
+  '@thaz/oxfmt-config': 1.0.0-rc.1
+  '@thaz/typescript-config': 1.0.0-rc.1
+  '@types/node': 24.13.2
+  oxlint: 1.72.0
+  oxlint-tsgolint: 0.24.0
+  typescript: 6.0.3
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.4
+  vite-plugin-externalize-deps: 0.10.0
+  vite-plus: 0.2.4
+
+catalogMode: prefer
+# Watch this issue: https://github.com/pnpm/pnpm/issues/11238
+minimumReleaseAge: 4320 # 3 days just to be safe with the uptick of supply chain attacks
+
+minimumReleaseAgeExclude:
+  - '@thaz/typescript-config@1.0.0-rc.1'
+  - '@thaz/oxfmt-config@1.0.0-rc.1'
+
+overrides:
+  vite: 'catalog:'
+
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: '*'

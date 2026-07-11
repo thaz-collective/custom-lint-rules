@@ -1,0 +1,57 @@
+{
+  "name": "@thaz/custom-lint-rules",
+  "version": "1.0.0-rc.1",
+  "description": "Set of custom lint rules for applications and libraries in the thaz collective namespace",
+  "keywords": [
+    "config",
+    "lint",
+    "oxlint"
+  ],
+  "homepage": "https://github.com/thaz-collective/custom-lint-rules#readme",
+  "bugs": {
+    "url": "https://github.com/thaz-collective/custom-lint-rules/issues"
+  },
+  "license": "MIT",
+  "author": "Tim Hazlett",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thaz-collective/custom-lint-rules.git"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "scripts": {
+    "prepack": "vp run build",
+    "taze": "vpx taze@latest -Ilwr --maturity-period 3",
+    "taze:major": "vpx taze@latest major -Ilwr --maturity-period 3",
+    "taze:minor": "vpx taze@latest minor -Ilwr --maturity-period 3",
+    "taze:patch": "vpx taze@latest patch -Ilwr --maturity-period 3"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "catalog:",
+    "@thaz/oxfmt-config": "catalog:",
+    "@thaz/typescript-config": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-externalize-deps": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.11.0"
+}

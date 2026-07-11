@@ -1,0 +1,11 @@
+{
+  "extends": [
+    "@thaz/typescript-config/bundler.json",
+    "@thaz/typescript-config/lib.json",
+    "@thaz/typescript-config/paths.json"
+  ],
+  "include": ["src", "vite.config.ts"],
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}
