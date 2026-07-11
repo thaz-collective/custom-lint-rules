@@ -34,10 +34,11 @@ overrides:
 importers:
 
   .:
-    devDependencies:
+    dependencies:
       '@oxlint/plugins':
         specifier: 'catalog:'
         version: 1.73.0
+    devDependencies:
       '@thaz/oxfmt-config':
         specifier: 'catalog:'
         version: 1.0.0-rc.1(oxfmt@0.57.0(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3)))

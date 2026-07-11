@@ -1,8 +1,8 @@
-import { definePlugin } from '@oxlint/plugins';
+import { eslintCompatPlugin } from '@oxlint/plugins';
 
 import { optionsFileLocation } from '#src/rules/options-file-location';
 
-export const thazLintRules = definePlugin({
+export const thazLintRules = eslintCompatPlugin({
   meta: {
     name: 'thaz-collective-standards',
   },
@@ -10,3 +10,5 @@ export const thazLintRules = definePlugin({
     'options-file-location': optionsFileLocation,
   },
 });
+
+export default thazLintRules;

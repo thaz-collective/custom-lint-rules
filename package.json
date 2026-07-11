@@ -40,8 +40,10 @@
     "taze:minor": "vpx taze@latest minor -Ilwr --maturity-period 3",
     "taze:patch": "vpx taze@latest patch -Ilwr --maturity-period 3"
   },
+  "dependencies": {
+    "@oxlint/plugins": "catalog:"
+  },
   "devDependencies": {
-    "@oxlint/plugins": "catalog:",
     "@thaz/oxfmt-config": "catalog:",
     "@thaz/typescript-config": "catalog:",
     "@types/node": "catalog:",
