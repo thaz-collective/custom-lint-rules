@@ -1,4 +1,10 @@
+import { relative } from 'node:path';
+
 import { defineRule } from '@oxlint/plugins';
+
+const TANSTACK_QUERY_SOURCE = '@tanstack/react-query';
+
+const OPTIONS_FILE_PATTERN = /(?:^|\/)src\/services\/[^/]+\/options\.ts$/;
 
 export const optionsFileLocation = defineRule({
   meta: {
@@ -12,37 +18,54 @@ export const optionsFileLocation = defineRule({
     },
   },
   createOnce(context) {
-    const rawFileName = context.filename;
+    const fileName = context.filename.replace(/\\/g, '/');
+    const relativeFileName = relative(context.cwd, context.filename).replace(/\\/g, '/');
 
-    const fileName = rawFileName.replace(/\\/g, '/');
+    const isAllowedLocation = OPTIONS_FILE_PATTERN.test(fileName);
 
-    const isAllowedLocation = fileName.includes('src/services/') && fileName.endsWith('options.ts');
+    if (isAllowedLocation) {
+      return {};
+    }
+
+    const moduleScope = context.sourceCode.scopeManager.acquire(context.sourceCode.ast);
 
     return {
       CallExpression(node) {
         const callee = node.callee;
         let calleeName: null | string = null;
+        let objectName: null | string = null;
 
         if (callee.type === 'Identifier') {
           calleeName = callee.name;
         } else if (callee.type === 'MemberExpression' && callee.property.type === 'Identifier') {
           calleeName = callee.property.name;
+
+          if (callee.object.type === 'Identifier') {
+            objectName = callee.object.name;
+          }
         }
 
         if (calleeName !== 'queryOptions' && calleeName !== 'mutationOptions') {
           return;
         }
 
-        if (!isAllowedLocation) {
-          context.report({
-            node,
-            messageId: 'wrongLocation',
-            data: {
-              factory: calleeName,
-              file: fileName,
-            },
-          });
+        const variable = moduleScope?.set.get(objectName ?? calleeName);
+        const importBinding = variable?.defs.find((def) => def.type === 'ImportBinding');
+        const importSource =
+          importBinding?.parent?.type === 'ImportDeclaration' ? importBinding.parent.source.value : null;
+
+        if (importSource !== TANSTACK_QUERY_SOURCE) {
+          return;
         }
+
+        context.report({
+          node,
+          messageId: 'wrongLocation',
+          data: {
+            factory: calleeName,
+            file: relativeFileName,
+          },
+        });
       },
     };
   },
