@@ -76,28 +76,47 @@ export const optionsFileLocation = defineRule({
           }
         }
 
-        // Not a call to queryOptions/mutationOptions at all (by name) -
-        // nothing to check.
-        if (calleeName !== 'queryOptions' && calleeName !== 'mutationOptions') {
+        // Not a call shaped like `foo()` or `foo.bar()` at all - nothing to check.
+        if (calleeName === null) {
           return;
         }
 
         // Look up whichever name is actually the import binding we care
         // about: `objectName` for `rq.queryOptions()`, otherwise
-        // `calleeName` for a plain `queryOptions()` call.
+        // `calleeName` for a plain `someLocalName()` call. Note we can't
+        // pre-filter by name here the way we used to - a named import can be
+        // renamed (`import { queryOptions as tqQueryOptions } ...`), so the
+        // local name alone can't tell us whether this is the function we
+        // care about. We only find that out once we resolve the import below.
         const variable = moduleScope?.set.get(objectName ?? calleeName);
         // A variable can have multiple "definitions" (e.g. reassigned), so
         // find the one that came from an import statement, if any.
         const importBinding = variable?.defs.find((def) => def.type === 'ImportBinding');
-        // Walk from the specifier (e.g. `{ queryOptions }`) up to its parent
-        // ImportDeclaration to read the module it was imported from.
-        const importSource =
-          importBinding?.parent?.type === 'ImportDeclaration' ? importBinding.parent.source.value : null;
 
-        // The name matched, but it isn't actually tanstack's queryOptions/
-        // mutationOptions (e.g. a locally-defined function with the same
-        // name) - don't flag it.
-        if (importSource !== TANSTACK_QUERY_SOURCE) {
+        if (!importBinding || importBinding.parent?.type !== 'ImportDeclaration') {
+          return;
+        }
+
+        // Not imported from tanstack query at all - don't flag it, regardless
+        // of what it's named.
+        if (importBinding.parent.source.value !== TANSTACK_QUERY_SOURCE) {
+          return;
+        }
+
+        // Figure out the *real* (un-aliased) export name:
+        //  - `rq.queryOptions()`: property access can't be renamed, so
+        //    `calleeName` ("queryOptions") is already the real export name.
+        //  - `tqQueryOptions()` from `{ queryOptions as tqQueryOptions }`:
+        //    the local name is an alias - the specifier's `imported` field
+        //    holds the name it was actually exported as.
+        const importedName =
+          objectName === null && importBinding.node.type === 'ImportSpecifier'
+            ? importBinding.node.imported.type === 'Identifier'
+              ? importBinding.node.imported.name
+              : importBinding.node.imported.value
+            : calleeName;
+
+        if (importedName !== 'queryOptions' && importedName !== 'mutationOptions') {
           return;
         }
 
