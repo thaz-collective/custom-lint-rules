@@ -2,6 +2,7 @@ import { externalizeDeps } from 'vite-plugin-externalize-deps';
 import { defineConfig } from 'vite-plus';
 
 import { oxfmtConfig } from '@thaz/oxfmt-config';
+import { nativeConfig, libraryCodeConfigRules } from '@thaz/oxlint-config';
 
 export default defineConfig({
   staged: {
@@ -21,6 +22,9 @@ export default defineConfig({
       },
       fmt: {
         command: 'vp fmt',
+      },
+      lint: {
+        command: 'vp lint',
       },
       typecheck: {
         command: 'vp check --no-fmt --no-lint',
@@ -52,9 +56,14 @@ export default defineConfig({
   },
   fmt: oxfmtConfig,
   lint: {
+    extends: [nativeConfig],
     options: {
       typeAware: true,
       typeCheck: true,
+    },
+    rules: {
+      ...libraryCodeConfigRules.rules,
+      'import/no-default-export': 'off',
     },
   },
 });

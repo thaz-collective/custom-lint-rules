@@ -12,6 +12,9 @@ catalogs:
     '@thaz/oxfmt-config':
       specifier: 1.0.0-rc.1
       version: 1.0.0-rc.1
+    '@thaz/oxlint-config':
+      specifier: 1.0.0-rc.1
+      version: 1.0.0-rc.1
     '@thaz/typescript-config':
       specifier: 1.0.0-rc.1
       version: 1.0.0-rc.1
@@ -42,6 +45,9 @@ importers:
       '@thaz/oxfmt-config':
         specifier: 'catalog:'
         version: 1.0.0-rc.1(oxfmt@0.57.0(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3)))
+      '@thaz/oxlint-config':
+        specifier: 'catalog:'
+        version: 1.0.0-rc.1(oxlint-tsgolint@0.24.0)(oxlint@1.72.0(oxlint-tsgolint@0.24.0)(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3)))
       '@thaz/typescript-config':
         specifier: 'catalog:'
         version: 1.0.0-rc.1(typescript@6.0.3)
@@ -391,6 +397,13 @@ packages:
     engines: {node: '>=24'}
     peerDependencies:
       oxfmt: ^0.57.0
+
+  '@thaz/oxlint-config@1.0.0-rc.1':
+    resolution: {integrity: sha512-kogpLs1jJhTxru8tOCe8dO8HVH6oG0bzZfThdrH0F7H/D1Ver9SK90YekmW6fsGS4ntQ0IQKEsSAQi9PKWaIBA==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      oxlint: ^1.72.0
+      oxlint-tsgolint: ^0.24.0
 
   '@thaz/typescript-config@1.0.0-rc.1':
     resolution: {integrity: sha512-KC1jDtUG3CtGSYO/JUSE40ctyU4WW82f4GSyitxowosujiM2ACyC91VEoWZjqp0kIPmbJLNeQdumIYXFL8lZ5g==}
@@ -1072,6 +1085,11 @@ snapshots:
   '@thaz/oxfmt-config@1.0.0-rc.1(oxfmt@0.57.0(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3)))':
     dependencies:
       oxfmt: 0.57.0(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3))
+
+  '@thaz/oxlint-config@1.0.0-rc.1(oxlint-tsgolint@0.24.0)(oxlint@1.72.0(oxlint-tsgolint@0.24.0)(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3)))':
+    dependencies:
+      oxlint: 1.72.0(oxlint-tsgolint@0.24.0)(vite-plus@0.2.4(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@24.13.2)(typescript@6.0.3))(typescript@6.0.3))
+      oxlint-tsgolint: 0.24.0
 
   '@thaz/typescript-config@1.0.0-rc.1(typescript@6.0.3)':
     dependencies:

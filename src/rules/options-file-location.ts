@@ -1,6 +1,7 @@
 import { relative } from 'node:path';
 
-import { defineRule, type Scope } from '@oxlint/plugins';
+import type { Scope } from '@oxlint/plugins';
+import { defineRule } from '@oxlint/plugins';
 
 const TANSTACK_QUERY_SOURCE = '@tanstack/react-query';
 
@@ -36,11 +37,11 @@ export const optionsFileLocation = defineRule({
         // `context.filename` is the absolute path to the file being linted.
         // Windows uses "\" as a path separator; normalize to "/" so our
         // regex (and any string matching) works the same on every OS.
-        const fileName = context.filename.replace(/\\/g, '/');
+        const fileName = context.filename.replaceAll('\\', '/');
         // Convert to a path relative to the project root, purely so the
         // reported error message is short and readable instead of a full
         // absolute path.
-        relativeFileName = relative(context.cwd, context.filename).replace(/\\/g, '/');
+        relativeFileName = relative(context.cwd, context.filename).replaceAll('\\', '/');
 
         // This file IS an allowed options.ts file - nothing to check.
         // Returning `false` tells the linter to skip this rule's visitors
@@ -63,7 +64,7 @@ export const optionsFileLocation = defineRule({
       // Called for every function-call node - but only in files that made it
       // past `before` above, i.e. files that AREN'T an allowed options.ts.
       CallExpression(node) {
-        const callee = node.callee;
+        const { callee } = node;
         // calleeName is the *function name itself* being called, regardless
         // of how it was called:
         //   queryOptions()        -> callee is an Identifier -> calleeName = "queryOptions"
@@ -119,12 +120,15 @@ export const optionsFileLocation = defineRule({
         //  - `tqQueryOptions()` from `{ queryOptions as tqQueryOptions }`:
         //    the local name is an alias - the specifier's `imported` field
         //    holds the name it was actually exported as.
-        const importedName =
-          objectName === null && importBinding.node.type === 'ImportSpecifier'
-            ? importBinding.node.imported.type === 'Identifier'
-              ? importBinding.node.imported.name
-              : importBinding.node.imported.value
-            : calleeName;
+        let importedName = calleeName;
+
+        if (objectName === null && importBinding.node.type === 'ImportSpecifier') {
+          if (importBinding.node.imported.type === 'Identifier') {
+            importedName = importBinding.node.imported.name;
+          } else {
+            importedName = importBinding.node.imported.value;
+          }
+        }
 
         if (importedName !== 'queryOptions' && importedName !== 'mutationOptions') {
           return;

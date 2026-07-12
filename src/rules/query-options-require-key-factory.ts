@@ -1,9 +1,5 @@
-import { defineRule, type ESTree } from '@oxlint/plugins';
-
-interface Options {
-  checkKeyReference?: boolean; // verify queryKey actually calls the key factory
-  checkParams?: boolean; // verify declared params appear in the queryKey
-}
+import type { ESTree } from '@oxlint/plugins';
+import { defineRule } from '@oxlint/plugins';
 
 const QUERY_OPTIONS_SUFFIX = 'QueryOptions';
 
@@ -13,6 +9,12 @@ const QUERY_OPTIONS_SUFFIX = 'QueryOptions';
 type NamedProperty = ESTree.BindingProperty | ESTree.BindingRestElement | ESTree.ObjectPropertyKind;
 
 // Reads a property's static name, or null for spreads/rest/computed keys.
+// Called from several distinct spots below (sibling names, the main
+// *QueryOptions loop, matching the queryKey property, reading destructured
+// params) so it earns its keep as a real helper. It doesn't touch `context`
+// or any other rule state, so it lives at module scope rather than nested in
+// `createOnce` - nesting a function that captures nothing just gets it
+// flagged for recreating itself needlessly.
 function propName(prop: NamedProperty): null | string {
   if (prop.type !== 'Property' || prop.computed) {
     return null;
@@ -31,34 +33,10 @@ function propName(prop: NamedProperty): null | string {
   return null;
 }
 
-// Same three call shapes as options-factory-shape.ts:
-//   a) direct call, b) arrow with expression body, c) arrow/fn with block body + return.
-function findProducedCall(value: ESTree.Expression): ESTree.CallExpression | null {
-  if (value.type === 'CallExpression') {
-    return value;
-  }
-
-  if (value.type !== 'ArrowFunctionExpression' && value.type !== 'FunctionExpression') {
-    return null;
-  }
-
-  const body = value.body;
-
-  if (body === null || body.type === 'BlockStatement') {
-    for (const statement of body?.body ?? []) {
-      if (statement.type === 'ReturnStatement' && statement.argument?.type === 'CallExpression') {
-        return statement.argument;
-      }
-    }
-
-    return null;
-  }
-
-  return body.type === 'CallExpression' ? body : null;
-}
-
 // Does `node` (a queryKey value, or one of its array elements) contain a call
 // to the sibling key factory, e.g. `[postOptions.getPosts()]` or `[getPosts()]`?
+// Recursive (arrays/spreads can nest), so it needs a name to call itself -
+// can't be inlined at its one call site the way findProducedCall below was.
 function referencesFactory(node: ESTree.Expression | ESTree.SpreadElement | null, factoryName: string): boolean {
   if (!node) {
     return false;
@@ -73,7 +51,7 @@ function referencesFactory(node: ESTree.Expression | ESTree.SpreadElement | null
   }
 
   if (node.type === 'CallExpression') {
-    const callee = node.callee;
+    const { callee } = node;
 
     if (callee.type === 'Identifier') {
       return callee.name === factoryName;
@@ -87,35 +65,39 @@ function referencesFactory(node: ESTree.Expression | ESTree.SpreadElement | null
   return false;
 }
 
+// A type guard (rather than an inline `typeof`/`as` check) because narrowing
+// `unknown` to a genuinely indexable `Record<string, unknown>` - as opposed
+// to just `object`, which doesn't allow property access - requires a
+// user-defined predicate; there's no way to inline this without an `as` cast.
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 // Collects every identifier name appearing anywhere inside `node`, so we can
 // tell whether a declared param made it into the queryKey. Deliberately
 // untyped/generic (rather than walking a typed AST shape) since it needs to
 // recurse into arbitrary expression shapes without a case for each one.
 function collectIdentifierNames(node: unknown, into: Set<string>): void {
-  if (!node || typeof node !== 'object') {
+  if (!isRecord(node)) {
     return;
   }
 
-  const record = node as Record<string, unknown>;
-
-  if (typeof record['type'] !== 'string') {
-    return;
+  if (node['type'] === 'Identifier' && typeof node['name'] === 'string') {
+    into.add(node['name']);
   }
 
-  if (record['type'] === 'Identifier' && typeof record['name'] === 'string') {
-    into.add(record['name']);
-  }
-
-  for (const key of Object.keys(record)) {
+  for (const key of Object.keys(node)) {
     // Avoid walking back up the tree into siblings/ancestors.
     if (key === 'parent') {
       continue;
     }
 
-    const child = record[key];
+    const child = node[key];
 
     if (Array.isArray(child)) {
-      child.forEach((item) => collectIdentifierNames(item, into));
+      for (const item of child) {
+        collectIdentifierNames(item, into);
+      }
     } else {
       collectIdentifierNames(child, into);
     }
@@ -146,10 +128,30 @@ export const queryOptionsRequireKeyFactory = defineRule({
       paramNotInKey: "'{{name}}' accepts '{{param}}' but it is not included in the queryKey.",
     },
   },
-  // Purely structural - no per-file import/path state, so plain `create`
-  // (called fresh per file) is all that's needed.
-  create(context) {
-    const { checkKeyReference = true, checkParams = true } = (context.options[0] ?? {}) as unknown as Options;
+  // Purely structural - no per-file import/path state - so even though
+  // `createOnce` only builds this visitor once for the whole run, nothing
+  // here can go stale between files.
+  createOnce(context) {
+    const [rawOptions] = context.options;
+    let checkKeyReference = true;
+    let checkParams = true;
+
+    // `rawOptions` is a JsonValue (object | array | string | number | boolean
+    // | null); narrowing it down to "a plain options object" via typeof/
+    // Array.isArray checks (rather than an `as` cast) keeps this type-safe -
+    // TS narrows it to JsonObject on its own once the other branches are ruled out.
+    if (typeof rawOptions === 'object' && rawOptions !== null && !Array.isArray(rawOptions)) {
+      const checkKeyReferenceValue = rawOptions['checkKeyReference'];
+      const checkParamsValue = rawOptions['checkParams'];
+
+      if (typeof checkKeyReferenceValue === 'boolean') {
+        checkKeyReference = checkKeyReferenceValue;
+      }
+
+      if (typeof checkParamsValue === 'boolean') {
+        checkParams = checkParamsValue;
+      }
+    }
 
     return {
       // Inspect the object literal as a whole so we can see all sibling
@@ -189,11 +191,35 @@ export const queryOptionsRequireKeyFactory = defineRule({
             continue;
           }
 
-          const call = findProducedCall(prop.value);
+          // The property's value can produce its queryOptions() call in
+          // three shapes:
+          //   a) direct call:          getPostsQueryOptions: queryOptions({ ... })
+          //   b) arrow, expr body:     getPostsQueryOptions: () => queryOptions({ ... })
+          //   c) arrow/fn, block body: getPostsQueryOptions: () => { return queryOptions({ ... }); }
+          let call: ESTree.CallExpression | null = null;
+          const { value } = prop;
+
+          if (value.type === 'CallExpression') {
+            call = value;
+          } else if (value.type === 'ArrowFunctionExpression' || value.type === 'FunctionExpression') {
+            const { body } = value;
+
+            if (body?.type === 'CallExpression') {
+              call = body;
+            } else if (body?.type === 'BlockStatement') {
+              for (const statement of body.body) {
+                if (statement.type === 'ReturnStatement' && statement.argument?.type === 'CallExpression') {
+                  call = statement.argument;
+                  break;
+                }
+              }
+            }
+          }
+
           let calleeName: null | string = null;
 
           if (call) {
-            const callee = call.callee;
+            const { callee } = call;
 
             if (callee.type === 'Identifier') {
               calleeName = callee.name;
@@ -207,7 +233,7 @@ export const queryOptionsRequireKeyFactory = defineRule({
             continue;
           }
 
-          const configArg = call.arguments[0];
+          const [configArg] = call.arguments;
 
           if (!configArg || configArg.type !== 'ObjectExpression') {
             continue;
@@ -235,7 +261,7 @@ export const queryOptionsRequireKeyFactory = defineRule({
           let declaredParams: string[] = [];
 
           if (prop.value.type === 'ArrowFunctionExpression' || prop.value.type === 'FunctionExpression') {
-            const firstParam = prop.value.params[0];
+            const [firstParam] = prop.value.params;
 
             if (firstParam?.type === 'ObjectPattern') {
               declaredParams = firstParam.properties.map((p) => propName(p)).filter((n): n is string => n !== null);

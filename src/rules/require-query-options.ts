@@ -1,11 +1,5 @@
 import { defineRule } from '@oxlint/plugins';
 
-interface Options {
-  // When false, a bare identifier/variable is tolerated; only inline object
-  // literals are flagged.
-  requireFactoryCall?: boolean;
-}
-
 const TANSTACK_QUERY_SOURCE = '@tanstack/react-query';
 const TARGET_HOOKS = new Set(['useQuery', 'useSuspenseQuery']);
 
@@ -32,20 +26,44 @@ export const requireQueryOptions = defineRule({
       },
     ],
   },
-  // Stateful (tracks imports seen so far in the file) but the state only
-  // needs to live for the duration of one file, and `create` is called fresh
-  // per file, so a plain closure-scoped Map is naturally reset for us -
-  // no `createOnce`/`before` dance required here.
-  create(context) {
-    const { requireFactoryCall = true } = (context.options[0] ?? {}) as unknown as Options;
+  // `createOnce` builds this visitor ONE time for the whole run, not fresh
+  // per file - so the import-tracking state below (which local names resolve
+  // to a target hook, which name is bound to a `* as` import) can't just be
+  // initialized here once and left alone; it has to be reset in `before`,
+  // which DOES run once per file, or bindings from an earlier file would
+  // leak into every file after it.
+  createOnce(context) {
+    const [rawOptions] = context.options;
+    let requireFactoryCall = true;
+
+    // `rawOptions` is a JsonValue (object | array | string | number | boolean
+    // | null); narrowing it down to "a plain options object" via typeof/
+    // Array.isArray checks (rather than an `as` cast) keeps this type-safe -
+    // TS narrows it to JsonObject on its own once the other branches are ruled out.
+    // Rule options are fixed for the whole run, so (unlike the state below)
+    // this only needs to be parsed once, here.
+    if (typeof rawOptions === 'object' && rawOptions !== null && !Array.isArray(rawOptions)) {
+      const value = rawOptions['requireFactoryCall'];
+
+      if (typeof value === 'boolean') {
+        requireFactoryCall = value;
+      }
+    }
 
     // local import name -> real hook name, e.g. `uq` -> `useQuery` for
     // `import { useQuery as uq } from '@tanstack/react-query'`.
-    const localHookNames = new Map<string, string>();
+    // Reassigned per file inside `before`.
+    let localHookNames = new Map<string, string>();
     // Local name bound to `import * as rq from '@tanstack/react-query'`, if any.
+    // Reassigned per file inside `before`.
     let namespaceLocalName: null | string = null;
 
     return {
+      before() {
+        localHookNames = new Map();
+        namespaceLocalName = null;
+      },
+
       ImportDeclaration(node) {
         if (node.source.value !== TANSTACK_QUERY_SOURCE) {
           return;
@@ -61,8 +79,13 @@ export const requireQueryOptions = defineRule({
             continue;
           }
 
-          const importedName =
-            specifier.imported.type === 'Identifier' ? specifier.imported.name : specifier.imported.value;
+          let importedName: string;
+
+          if (specifier.imported.type === 'Identifier') {
+            importedName = specifier.imported.name;
+          } else {
+            importedName = specifier.imported.value;
+          }
 
           if (TARGET_HOOKS.has(importedName)) {
             localHookNames.set(specifier.local.name, importedName);
@@ -71,7 +94,7 @@ export const requireQueryOptions = defineRule({
       },
 
       CallExpression(node) {
-        const callee = node.callee;
+        const { callee } = node;
 
         // Resolve which hook (if any) is being called, requiring it to
         // actually trace back to an import from @tanstack/react-query -
@@ -94,7 +117,7 @@ export const requireQueryOptions = defineRule({
           return;
         }
 
-        const firstArg = node.arguments[0];
+        const [firstArg] = node.arguments;
 
         if (!firstArg) {
           context.report({ node, messageId: 'missingArgument', data: { hook: hookName } });

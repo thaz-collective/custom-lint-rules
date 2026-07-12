@@ -3,6 +3,7 @@ blockExoticSubdeps: true
 catalog:
   '@oxlint/plugins': 1.73.0
   '@thaz/oxfmt-config': 1.0.0-rc.1
+  '@thaz/oxlint-config': 1.0.0-rc.1
   '@thaz/typescript-config': 1.0.0-rc.1
   '@types/node': 24.13.2
   typescript: 6.0.3
@@ -17,6 +18,7 @@ minimumReleaseAge: 4320 # 3 days just to be safe with the uptick of supply chain
 minimumReleaseAgeExclude:
   - '@thaz/typescript-config@1.0.0-rc.1'
   - '@thaz/oxfmt-config@1.0.0-rc.1'
+  - '@thaz/oxlint-config@1.0.0-rc.1'
 
 overrides:
   vite: 'catalog:'

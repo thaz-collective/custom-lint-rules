@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@thaz/oxfmt-config": "catalog:",
+    "@thaz/oxlint-config": "catalog:",
     "@thaz/typescript-config": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
